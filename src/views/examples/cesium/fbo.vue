@@ -7,8 +7,21 @@
 import Map from "@/components/Map.vue";
 import * as Cesium from "cesium";
 import { onMounted } from "vue";
+import bus from "@/utils/bus";
+
+
+//获取viewer
+let viewer = null;
 onMounted(() => {
-	addFbo();
+	bus.emit("getViewer", (res) => {
+		viewer = res;
+		console.log('获取到 viewer:', viewer); // 添加调试日志
+		if (viewer) {
+			addFbo();
+		} else {
+			console.warn('viewer 未正确初始化');
+		}
+	});
 });
 let addFbo = () => {
 	// 创建自定义渲染阶段
@@ -18,21 +31,26 @@ let addFbo = () => {
 	const drawingBufferHeight = context.drawingBufferHeight;
 
 	// 1. 创建 FBO 和关联的纹理
-	const fbo = context.createFramebuffer({
-		colorTextures: [
-			context.createTexture2D({
-				width: drawingBufferWidth,
-				height: drawingBufferHeight,
-				pixelFormat: Cesium.PixelFormat.RGBA,
-				pixelDatatype: Cesium.PixelDataType.UNSIGNED_BYTE,
-			}),
-		],
-		depthStencilTexture: context.createTexture2D({
-			width: drawingBufferWidth,
-			height: drawingBufferHeight,
-			pixelFormat: Cesium.PixelFormat.DEPTH_STENCIL,
-			pixelDatatype: Cesium.PixelDataType.UNSIGNED_INT_24_8,
-		}),
+	const colorTexture = new Cesium.Texture({
+		context: context,
+		width: drawingBufferWidth,
+		height: drawingBufferHeight,
+		pixelFormat: Cesium.PixelFormat.RGBA,
+		pixelDatatype: Cesium.PixelDatatype.UNSIGNED_BYTE,
+	});
+
+	const depthStencilTexture = new Cesium.Texture({
+		context: context,
+		width: drawingBufferWidth,
+		height: drawingBufferHeight,
+		pixelFormat: Cesium.PixelFormat.DEPTH_STENCIL,
+		pixelDatatype: Cesium.PixelDatatype.UNSIGNED_INT_24_8,
+	});
+
+	const fbo = new Cesium.Framebuffer({
+		context: context,
+		colorTextures: [colorTexture],
+		depthStencilTexture: depthStencilTexture
 	});
 
 	// 2. 自定义着色器（高斯模糊效果）
@@ -44,13 +62,10 @@ let addFbo = () => {
         
         void main() {
           vec4 color = vec4(0.0);
-          float total = 0.0;
-          for (float i = -3.0; i <= 3.0; i++) {
-            float weight = exp(-0.5 * i * i);
-            color += texture2D(colorTexture, v_textureCoordinates + delta * i) * weight;
-            total += weight;
-          }
-          gl_FragColor = color / total;
+          // 设置为50%透明度的红色
+          color.rgb = vec3(1.0, 0.0, 0.0);
+          color.a = 0.5;
+          gl_FragColor = color;
         }
       `,
 		uniforms: {
@@ -68,7 +83,7 @@ let addFbo = () => {
 		scene.render();
 
 		// 解绑 FBO，恢复默认缓冲区
-		context.unBindFramebuffer();
+		context.bindFramebuffer(null);
 
 		// 应用后处理（从 FBO 的纹理读取数据）
 		context._us.draw({
@@ -84,7 +99,7 @@ let addFbo = () => {
 	const entity = viewer.entities.add({
 		position: Cesium.Cartesian3.fromDegrees(-75.59777, 40.03883),
 		model: {
-			uri: "@/assets/model/mechanical_spider.glb", // 替换为您的模型ID
+			uri: "./model/mechanical_spider.glb", // 替换为您的模型ID
 		},
 	});
 };
