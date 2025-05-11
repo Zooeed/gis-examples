@@ -1,5 +1,4 @@
 import * as Cesium from 'cesium'
-let viewer = {} // 地图对象
 
 const viewerOption = {
   animation: false, // 是否创建动画小器件，左下角仪表
@@ -27,7 +26,7 @@ const viewerOption = {
   terrainProvider: new Cesium.EllipsoidTerrainProvider(), // 地形图层提供者，仅baseLayerPicker设为false有意义
   fullscreenElement: document.body, // 全屏时渲染的HTML元素,
   useDefaultRenderLoop: true, // 如果需要控制渲染循环，则设为true
-  targetFrameRate: undefined, // 使用默认render loop时的帧率
+  domIdFrameRate: undefined, // 使用默认render loop时的帧率
   showRenderLoopErrors: false, // 如果设为true，将在一个HTML面板中显示错误信息
   automaticallyTrackDataSourceClocks: true, // 自动追踪最近添加的数据源的时钟设置
   contextOptions: {
@@ -40,33 +39,26 @@ const viewerOption = {
 
 /**
  * @description: 初始化地球
- * @param {string} target - 地球挂载的div容器
+ * @param {string} domId - 地球挂载的div容器
  * @return {*}
  */
-class CesiumMap {
-  constructor (target, Option = viewerOption) {
-    // 首次使用构造器实例
-    if (!CesiumMap.instance) {
-      this.target = target // Type: Element | String
-      this.viewer = new Cesium.Viewer(target, Option)
-      this.viewer.imageryLayers.removeAll() // 移除所有图层，只显示蓝色地球
+class ZMap {
+  constructor (domId, Option = viewerOption) {
+    this.domId = domId
+    this.viewer = new Cesium.Viewer(domId, Option)
+    this.viewer.imageryLayers.removeAll()
 
-      // 修改场景环境,关闭相关特效
-      this.viewer.scene.debugShowFramesPerSecond = true// 显示fps
-      this.viewer.scene.moon.show = false// 月亮
-      this.viewer.scene.fog.enabled = false// 雾
-      this.viewer.scene.sun.show = false// 太阳
-      this.viewer.scene.skyBox.show = true// 天空盒
-      this.viewer.scene.globe.enableLighting = false // 激活基于太阳位置的光照（场景光照
-      this.viewer.resolutionScale = 1.0// 画面细度，默认值为1.0
+    // 修改场景环境
+    this.viewer.scene.debugShowFramesPerSecond = true
+    this.viewer.scene.moon.show = false
+    this.viewer.scene.fog.enabled = false
+    this.viewer.scene.sun.show = false
+    this.viewer.scene.skyBox.show = true
+    this.viewer.scene.globe.enableLighting = false
+    this.viewer.resolutionScale = 1.0
 
-      viewer = this.viewer
-      
-      // 将this挂载到CesiumMap这个类的instance属性上
-      CesiumMap.instance = this
-    }
-    return CesiumMap.instance
+    return this
   }
 }
 
-export {CesiumMap, viewer};
+export default ZMap;

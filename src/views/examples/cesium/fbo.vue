@@ -1,108 +1,171 @@
 <template>
-	<Map></Map>
+	<div class="container">
+		<Map></Map>
+		<canvas ref="eagleEyeCanvas" id="canvas" class="eagle-eye-canvas"></canvas>
+	</div>
 </template>
 
 <script setup>
-//fbo示例
+/**
+ * FBO示例 - 实现鹰眼视图功能
+ * 使用Cesium的Framebuffer对象创建离屏渲染，实现主视图与鹰眼视图的同步显示
+ */
 import Map from "@/components/Map.vue";
-import * as Cesium from "cesium";
-import { onMounted } from "vue";
+import { Cesium } from '@/utils/ZMap';
+import { onMounted, ref, onUnmounted } from "vue";
 import bus from "@/utils/bus";
 
 
-//获取viewer
+// 获取viewer实例
+// 通过事件总线获取Cesium viewer对象，用于后续地图操作
 let viewer = null;
+// 创建Canvas引用
+const eagleEyeCanvas = ref(null);
+
 onMounted(() => {
+	// 通过事件总线获取viewer实例
 	bus.emit("getViewer", (res) => {
 		viewer = res;
-		console.log('获取到 viewer:', viewer); // 添加调试日志
+		console.log('获取到 viewer:', viewer); // 调试日志
 		if (viewer) {
-			addFbo();
+			let fbo = createFrameBuffer(viewer.scene.context);
+			// viewer获取成功，初始化FBO功能
+			viewer.scene.preRender.addEventListener(() => {
+				renderToFboByReflectCamera(fbo, viewer.scene);
+				let width = viewer.scene.context.drawingBufferWidth;
+				let height = viewer.scene.context.drawingBufferHeight;
+				let pixels = viewer.scene.context.readPixels({
+					x: 0,
+					y: 0,
+					width: width,
+					height: height,
+					framebuffer: fbo,
+				});
+				let cavs = document.getElementById("canvas");
+				cavs.width = width;
+				cavs.height = height;
+				let imgData = new ImageData(new Uint8ClampedArray(pixels), width, height);
+				let ctx = cavs.getContext("2d");
+				ctx.putImageData(imgData, 0, 0, 0, 0, width, height);
+				ctx.translate(0, height);
+				ctx.scale(1, -1);
+				ctx.drawImage(cavs, 0, 0);
+				cavs.style.height = (height * 0.3) + "px";
+				cavs.style.width = (width * 0.3) + "px";
+			})
 		} else {
 			console.warn('viewer 未正确初始化');
 		}
 	});
 });
-let addFbo = () => {
-	// 创建自定义渲染阶段
-	const scene = viewer.scene;
-	const context = scene.context;
-	const drawingBufferWidth = context.drawingBufferWidth;
-	const drawingBufferHeight = context.drawingBufferHeight;
 
-	// 1. 创建 FBO 和关联的纹理
-	const colorTexture = new Cesium.Texture({
-		context: context,
-		width: drawingBufferWidth,
-		height: drawingBufferHeight,
-		pixelFormat: Cesium.PixelFormat.RGBA,
-		pixelDatatype: Cesium.PixelDatatype.UNSIGNED_BYTE,
-	});
+// 清理资源
+onUnmounted(() => {
+	if (framebuffer) {
+		framebuffer.destroy();
+		framebuffer = null;
+	}
+	if (renderLoop) {
+		clearInterval(renderLoop);
+		renderLoop = null;
+	}
+});
 
-	const depthStencilTexture = new Cesium.Texture({
-		context: context,
-		width: drawingBufferWidth,
-		height: drawingBufferHeight,
-		pixelFormat: Cesium.PixelFormat.DEPTH_STENCIL,
-		pixelDatatype: Cesium.PixelDatatype.UNSIGNED_INT_24_8,
-	});
+// 帧缓冲区和渲染循环变量
+let framebuffer = null;
+let eagleEyeContext = null;
+let renderLoop = null;
 
-	const fbo = new Cesium.Framebuffer({
-		context: context,
-		colorTextures: [colorTexture],
-		depthStencilTexture: depthStencilTexture
-	});
+// 初始化帧缓冲区并设置相机动画渲染
+const renderToFboByReflectCamera = (fbo, scene) => {
+	let context = viewer.scene.context;
+	const us = context.uniformState;
+	const view = scene._defaultView;
+	scene._view = view;
+	scene.updateFrameState();
+	let frameState = viewer.scene.frameState;
+	frameState.passes.render = true;
+	frameState.passes.postProcess = scene.postProcessStages.hasSelected;
+	let backgroundColor = Cesium.defaultValue(scene.backgroundColor, Cesium.Color.BLACK);
+	if (scene._hdr) {
+		backgroundColor = Cesium.Color.clone(backgroundColor, scratchBackgroundColor);
+		backgroundColor.red = Cesium.Math.pow(backgroundColor.red, scene.gamma);
+		backgroundColor.green = Cesium.Math.pow(backgroundColor.green, scene.gamma);
+		backgroundColor.blue = Cesium.Math.pow(backgroundColor.blue, scene.gamma);
+	}
+	frameState.backgroundColor = backgroundColor;
+	frameState.atmosphere = scene.atmosphere;
+	us.update(frameState);
 
-	// 2. 自定义着色器（高斯模糊效果）
-	const blurShader = new Cesium.PostProcessStage({
-		fragmentShader: `
-        uniform sampler2D colorTexture;
-        uniform vec2 delta;
-        varying vec2 v_textureCoordinates;
-        
-        void main() {
-          vec4 color = vec4(0.0);
-          // 设置为50%透明度的红色
-          color.rgb = vec3(1.0, 0.0, 0.0);
-          color.a = 0.5;
-          gl_FragColor = color;
-        }
-      `,
-		uniforms: {
-			delta: new Cesium.Cartesian2(1.0 / drawingBufferWidth, 1.0), // 水平模糊
-		},
-	});
+	scene._computeCommandList.length = 0;
+	scene._overlayCommandList.length = 0;
+	const viewport = view.viewport;
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = context.drawingBufferWidth;
+	viewport.height = context.drawingBufferHeight;
+	const passState = view.passState;
+	passState.framebuffer = fbo;
+	passState.blendingEnabled = undefined;
+	passState.scissorTest = undefined;
+	passState.viewport = Cesium.BoundingRectangle.clone(viewport, passState.viewport);
 
-	// 3. 主渲染循环
-	scene.postRender.addEventListener(() => {
-		// 绑定 FBO 进行离屏渲染
-		context.bindFramebuffer(fbo);
-		context.clear(Cesium.ClearColorBit | Cesium.ClearDepthBit);
+	scene.updateEnvironment();
+	scene.updateAndExecuteCommands(passState, backgroundColor);
+	scene.resolveFramebuffers(passState);
+	passState.framebuffer = undefined;
 
-		// 渲染场景到 FBO
-		scene.render();
-
-		// 解绑 FBO，恢复默认缓冲区
-		context.bindFramebuffer(null);
-
-		// 应用后处理（从 FBO 的纹理读取数据）
-		context._us.draw({
-			vertexArray: blurShader._vertexArray,
-			shaderProgram: blurShader._shaderProgram,
-			uniformMap: blurShader._uniforms,
-			framebuffer: null, // 输出到主屏幕
-			texture: fbo.colorTextures[0], // 输入 FBO 的纹理
-		});
-	});
-
-	// 添加测试模型
-	const entity = viewer.entities.add({
-		position: Cesium.Cartesian3.fromDegrees(-75.59777, 40.03883),
-		model: {
-			uri: "./model/mechanical_spider.glb", // 替换为您的模型ID
-		},
-	});
+	context.endFrame();
+	scene._defaultView.camera = scene.camera;
 };
+const createFrameBuffer = (context) => {
+	let width = context.drawingBufferWidth;
+	let height = context.drawingBufferHeight;
+	let framebuffer = new Cesium.Framebuffer({
+		context: context,
+		colorTextures: [
+			new Cesium.Texture({
+				context: context,
+				width: width,
+				height: height,
+				pixelFormat: Cesium.PixelFormat.RGBA,
+			}),
+		],
+	});
+	return framebuffer;
+}
+// 翻转图像Y轴
+const flipImageY = (imageData, width, height) => {
+	const flipped = eagleEyeContext.createImageData(width, height);
+	const stride = width * 4;
+
+	for (let y = 0; y < height; y++) {
+		const srcOffset = (height - y - 1) * stride;
+		const dstOffset = y * stride;
+
+		for (let i = 0; i < stride; i++) {
+			flipped.data[dstOffset + i] = imageData.data[srcOffset + i];
+		}
+	}
+
+	return flipped;
+};
+
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.container {
+	position: relative;
+	width: 100%;
+	height: 100%;
+}
+
+.eagle-eye-canvas {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	border: 2px solid #3388ff;
+	background-color: rgba(0, 0, 0, 0.5);
+	z-index: 100;
+}
+</style>

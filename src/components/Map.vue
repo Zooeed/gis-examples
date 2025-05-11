@@ -3,14 +3,17 @@
 </template>
 <script setup>
 import * as Cesium from 'cesium'
-import { CesiumMap, viewer } from '../utils/map';
+import {ZMap} from '../utils/ZMap';
 import {onMounted , onUnmounted} from 'vue';
 import bus from "@/utils/bus";
 
+let Map = null;
+let viewer = null;
 //初始化地图
 let initMap = () => {
-	let Map = new CesiumMap('cesiumContainer');
-	window.Amap = Map;
+	Map = new ZMap('cesiumContainer');
+	console.log(Map,ZMap);
+	viewer = Map.viewer;
 };
 //添加矢量底图
 let addVec = () =>{
