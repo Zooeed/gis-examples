@@ -11,9 +11,46 @@ let Map = null;
 let viewer = null;
 //初始化地图
 let initMap = () => {
-	Map = new ZMap('cesiumContainer');
-	console.log(Map,ZMap);
-	viewer = Map.viewer;
+	// Map = new ZMap('cesiumContainer');
+	// console.log(Map,ZMap);
+	// viewer = Map.viewer;
+	viewer = new Cesium.Viewer(cesiumContainer, {
+    baseLayer: Cesium.ImageryLayer.fromProviderAsync(
+      Cesium.ArcGisMapServerImageryProvider.fromUrl(
+        'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+      ),
+      {},
+    ),
+    baseLayerPicker: false,   //图层选择器
+    animation: false,   //左下角仪表
+    fullscreenButton: false,   //全屏按钮
+    geocoder: false,   //右上角查询搜索
+    infoBox: false,   //信息框
+    homeButton: false,   //home按钮
+    sceneModePicker: false,  //3d 2d选择器
+    selectionIndicator: false,  //
+    timeline: false,   //时间轴
+    navigationHelpButton: false,  //右上角帮助按钮
+  })
+  
+  
+  viewer._cesiumWidget._creditContainer.style.display = "none";
+  viewer.scene.fog.density = 0.0001; // 雾气中水分含量
+  viewer.scene.globe.enableLighting = false;
+  viewer.scene.skyBox.show = false;
+  //显示刷新率和帧率
+  viewer.scene.debugShowFramesPerSecond = true;
+  // 加载地形
+  // viewer.scene.terrainProvider = Cesium.createWorldTerrainAsync()
+
+  // 启用深度测试以确保地形正确渲染
+  viewer.scene.globe.depthTestAgainstTerrain = true;
+  if(Cesium.FeatureDetection.supportsImageRenderingPixelated()){//判断是否支持图像渲染像素化处理
+    viewer.resolutionScale = window.devicePixelRatio;
+  }
+  //开启抗锯齿
+  viewer.scene.fxaa = true;
+  viewer.scene.postProcessStages.fxaa.enabled = true;
 };
 //添加矢量底图
 let addVec = () =>{

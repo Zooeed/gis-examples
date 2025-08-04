@@ -5,6 +5,7 @@ const routes = [
 		path: "/",
 		name: "Home",
 		component: () => import("../views/index.vue"),
+		redirect:'fbo',
 		children: [
 			{
 				path: "fbo",
@@ -20,6 +21,16 @@ const routes = [
 				path: "entity",
 				name: "entity",
 				component: () => import("@/views/examples/cesium/entity.vue")
+			},
+			{
+				path: "sampler3d",
+				name: "sampler3d",
+				component: () => import("@/views/examples/cesium/sampler3d.vue")
+			},
+			{
+				path: "windy",
+				name: "windy",
+				component: () => import("@/views/examples/cesium/windy.vue")
 			},
 		]
 	},

@@ -4,10 +4,12 @@
 
 <script setup>
 import Map from "@/components/Map.vue";
+import DraggablePopup from '@/utils/DraggablePopup.js';
+
 // import * as Cesium from "cesium";
 import { onMounted, onUnmounted, ref } from "vue";
 import bus from "@/utils/bus";
-import {Cesium} from '@/utils/ZMap';
+import { Cesium } from '@/utils/ZMap';
 import * as dat from 'dat.gui';
 
 let viewer = null;
@@ -37,8 +39,15 @@ onMounted(() => {
   bus.emit("getViewer", (res) => {
     viewer = res;
     if (viewer) {
+      // 创建弹窗
+      const position = Cesium.Cartesian3.fromDegrees(116.39, 39.9, 1000);
+      const popup = new DraggablePopup(viewer, {
+        position: position,
+        content: '<div>这是一个可拖拽的弹窗</div>'
+      });
       addGeometry();
       setupGUI();
+      
     } else {
       console.warn('viewer 未正确初始化');
     }
@@ -52,15 +61,15 @@ onUnmounted(() => {
     gui.destroy();
     gui = null;
   }
-  
+
   // 清理实体
   if (viewer) {
     // 移除所有实体
-    console.log('entities',viewer);
+    console.log('entities', viewer);
     // if (entities.point) viewer.entities.remove(entities.point);
     // if (entities.line) viewer.entities.remove(entities.line);
     // if (entities.polygon) viewer.entities.remove(entities.polygon);
-    
+
     // 清空实体引用
     entities.point = null;
     entities.line = null;
@@ -70,7 +79,7 @@ onUnmounted(() => {
 
 const setupGUI = () => {
   gui = new dat.GUI();
-  
+
   // 点的控制
   const pointFolder = gui.addFolder('点');
   pointFolder.addColor(params, 'pointColor').onChange((value) => {
@@ -83,7 +92,7 @@ const setupGUI = () => {
       entities.point.point.pixelSize = value;
     }
   });
-  
+
   // 线的控制
   const lineFolder = gui.addFolder('线');
   lineFolder.addColor(params, 'lineColor').onChange((value) => {
@@ -96,7 +105,7 @@ const setupGUI = () => {
       entities.line.polyline.width = value;
     }
   });
-  
+
   // 面的控制
   const polygonFolder = gui.addFolder('面');
   polygonFolder.addColor(params, 'polygonColor').onChange((value) => {
@@ -137,8 +146,8 @@ const addGeometry = () => {
       pixelOffset: new Cesium.Cartesian2(0, -10)
     }
   });
-  console.log('entities',viewer.entities);
-  
+  console.log('entities', viewer.entities);
+
   // 添加线
   entities.line = viewer.entities.add({
     polyline: {
@@ -181,4 +190,5 @@ const addGeometry = () => {
 </script>
 
 <style lang="scss" scoped>
+
 </style>

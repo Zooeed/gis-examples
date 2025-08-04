@@ -34,6 +34,8 @@ const routes = [
     { path: 'fbo', name: '离屏渲染实现鹰眼' },
     { path: 'primitive', name: 'Primitive示例' },
     { path: 'entity', name: '点线面示例(entity)' },
+    { path: 'sampler3d', name: '体渲染' },
+    { path: 'windy', name: '风场' },
 ]
 
 // 修改为获取当前路由的最后一段

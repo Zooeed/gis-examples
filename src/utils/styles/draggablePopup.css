@@ -1,0 +1,86 @@
+/* 弹窗基础样式 */
+.cesium-draggable-popup {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: auto;
+    user-select: none;
+    transition: box-shadow 0.3s ease;
+}
+
+/* 拖拽时的样式 */
+.cesium-draggable-popup:active {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 弹窗标题样式 */
+.cesium-draggable-popup h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: inherit;
+}
+
+/* 弹窗内容样式 */
+.cesium-draggable-popup-content {
+    margin: 5px 0;
+    line-height: 1.5;
+}
+
+/* 弹窗按钮样式 */
+.cesium-draggable-popup button {
+    background: #409EFF;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.cesium-draggable-popup button:hover {
+    background: #66b1ff;
+}
+
+.cesium-draggable-popup button:active {
+    background: #3a8ee6;
+}
+
+/* 数据项样式 */
+.cesium-draggable-popup-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 5px 0;
+}
+
+.cesium-draggable-popup-item-label {
+    font-weight: 500;
+    margin-right: 10px;
+}
+
+/* 动画效果 */
+@keyframes popup-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.cesium-draggable-popup.show {
+    animation: popup-fade-in 0.3s ease-out;
+}
+
+/* 响应式样式 */
+@media screen and (max-width: 768px) {
+    .cesium-draggable-popup {
+        max-width: 250px !important;
+        font-size: 12px !important;
+    }
+    
+    .cesium-draggable-popup h3 {
+        font-size: 14px;
+    }
+}
